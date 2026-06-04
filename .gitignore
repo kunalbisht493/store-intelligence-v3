@@ -1,5 +1,43 @@
+# Data
+data/*
+!data/.gitkeep
+!data/store1/
+!data/store2/
+
+data/store1/*
+!data/store1/.gitkeep
+
+data/store2/*
+!data/store2/.gitkeep
+
+# Clips
+clips/*
+!clips/.gitkeep
+!clips/store1/
+!clips/store2/
+
+clips/store1/*
+!clips/store1/.gitkeep
+
+clips/store2/*
+!clips/store2/.gitkeep
+
+# Models
+models/*
+!models/.gitkeep
+
+# Environment
 .env
-clips/
-data/
-models/
+.env.*
+
+# Node
 node_modules/
+
+# SQLite
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+logs/*
