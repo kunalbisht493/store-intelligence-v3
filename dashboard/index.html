@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Store Intelligence — Live Dashboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=DM+Sans:wght@400;500;600&display=swap');
+
+  :root {
+    --bg:      #0d0f14;
+    --surface: #161b24;
+    --border:  #1f2836;
+    --text:    #e2e8f0;
+    --muted:   #64748b;
+    --accent:  #6ee7b7;
+    --warn:    #fbbf24;
+    --danger:  #f87171;
+    --blue:    #60a5fa;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
+  .logo span { color: var(--accent); }
+
+  .status-pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.3; }
+  }
+
+  .store-selector {
+    display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap;
+  }
+
+  .store-btn {
+    padding: 6px 16px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .store-btn.active, .store-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(110,231,183,.06);
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    transition: border-color .2s;
+  }
+  .card:hover { border-color: #2d3c50; }
+
+  .card-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .card-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 36px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--accent);
+    transition: color .3s;
+  }
+
+  .card-value.updated { color: #fff; }
+
+  .card-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  .panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  @media (max-width: 700px) { .panels { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+
+  .panel-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 16px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .panel-title .badge {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(110,231,183,.1);
+    color: var(--accent);
+  }
+
+  /* Funnel bars */
+  .funnel-stage {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 12px;
+  }
+  .stage-label { font-size: 12px; color: var(--muted); width: 100px; flex-shrink: 0; }
+  .stage-bar-wrap { flex: 1; background: var(--border); border-radius: 4px; height: 8px; }
+  .stage-bar { height: 8px; border-radius: 4px; background: var(--accent); transition: width .6s ease; }
+  .stage-count { font-family: 'JetBrains Mono', monospace; font-size: 12px; width: 36px; text-align: right; }
+
+  /* Zone heatmap */
+  .zone-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .zone-name { font-size: 12px; width: 110px; color: var(--muted); }
+  .zone-bar-wrap { flex: 1; background: var(--border); border-radius: 4px; height: 10px; }
+  .zone-bar { height: 10px; border-radius: 4px; transition: width .6s ease; }
+  .zone-dwell { font-family: 'JetBrains Mono', monospace; font-size: 11px; width: 60px; text-align: right; color: var(--muted); }
+
+  /* Anomalies */
+  .anomaly {
+    padding: 10px 14px;
+    border-radius: 6px;
+    border-left: 3px solid;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .anomaly.WARN     { border-color: var(--warn); background: rgba(251,191,36,.05); }
+  .anomaly.CRITICAL { border-color: var(--danger); background: rgba(248,113,113,.05); }
+  .anomaly.INFO     { border-color: var(--blue); background: rgba(96,165,250,.05); }
+
+  .anomaly-type  { font-family: 'JetBrains Mono', monospace; font-size: 11px; margin-bottom: 3px; }
+  .anomaly-title { font-size: 12px; color: var(--text); }
+  .anomaly-action { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+  .no-anomalies { font-size: 13px; color: var(--muted); text-align: center; padding: 20px 0; }
+
+  footer {
+    margin-top: 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Store <span>Intelligence</span></div>
+  <div class="status-pill">
+    <div class="dot" id="live-dot"></div>
+    <span id="last-updated">connecting...</span>
+  </div>
+</header>
+
+<div class="store-selector" id="store-selector"></div>
+
+<div class="grid">
+  <div class="card">
+    <div class="card-label">Unique Visitors</div>
+    <div class="card-value" id="val-visitors">—</div>
+    <div class="card-sub" id="sub-visitors">today</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Conversion Rate</div>
+    <div class="card-value" id="val-conversion">—</div>
+    <div class="card-sub" id="sub-conversion">visitors → purchase</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Queue Depth</div>
+    <div class="card-value" id="val-queue">—</div>
+    <div class="card-sub">at billing counter</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Abandonment Rate</div>
+    <div class="card-value" id="val-abandon">—</div>
+    <div class="card-sub">billing queue exits</div>
+  </div>
+</div>
+
+<div class="panels">
+  <div class="panel">
+    <div class="panel-title">Conversion Funnel <span class="badge" id="funnel-badge">—</span></div>
+    <div id="funnel-chart"></div>
+  </div>
+  <div class="panel">
+    <div class="panel-title">Zone Heatmap <span class="badge" id="heatmap-badge">—</span></div>
+    <div id="heatmap-chart"></div>
+  </div>
+</div>
+
+<div class="panel" style="margin-top:16px">
+  <div class="panel-title">Active Anomalies <span class="badge" id="anomaly-count">0</span></div>
+  <div id="anomalies-list"></div>
+</div>
+
+<footer id="footer-ts">Refreshing every 2 seconds</footer>
+
+<script>
+const API = 'http://localhost:3000';  // same origin — served by Fastify at /dashboard
+let currentStore = null;
+const REFRESH_MS = 2000;
+
+// ── Fetch store list from health endpoint ─────────────────────────────────────
+async function initStores() {
+  try {
+    const res  = await fetch(`${API}/health`);
+    const data = await res.json();
+    const stores = data.stores?.map(s => s.store_id).filter(id => id.startsWith('ST1'))|| [];
+
+    // Add default store if none found
+    if (stores.length === 0) stores.push('ST1008');
+    if (!currentStore) currentStore = stores[0];
+
+    renderStoreTabs(stores);
+  } catch {
+    currentStore = 'ST1008';
+    renderStoreTabs([currentStore]);
+  }
+}
+
+function renderStoreTabs(stores) {
+  const sel = document.getElementById('store-selector');
+  sel.innerHTML = '';
+  for (const s of stores) {
+    const btn = document.createElement('button');
+    btn.className = 'store-btn' + (s === currentStore ? ' active' : '');
+    btn.textContent = s;
+    btn.onclick = () => { currentStore = s; renderStoreTabs(stores); refresh(); };
+    sel.appendChild(btn);
+  }
+}
+
+// ── Main refresh ──────────────────────────────────────────────────────────────
+async function refresh() {
+  if (!currentStore) return;
+  try {
+    const [metrics, funnel, heatmap, anomalies] = await Promise.all([
+      fetch(`${API}/stores/${currentStore}/metrics`).then(r => r.json()),
+      fetch(`${API}/stores/${currentStore}/funnel`).then(r => r.json()),
+      fetch(`${API}/stores/${currentStore}/heatmap`).then(r => r.json()),
+      fetch(`${API}/stores/${currentStore}/anomalies`).then(r => r.json())
+    ]);
+
+    updateMetrics(metrics);
+    updateFunnel(funnel);
+    updateHeatmap(heatmap);
+    updateAnomalies(anomalies);
+
+    document.getElementById('last-updated').textContent =
+      'updated ' + new Date().toLocaleTimeString();
+    document.getElementById('live-dot').style.background = 'var(--accent)';
+
+  } catch (err) {
+    document.getElementById('last-updated').textContent = 'error — retrying...';
+    document.getElementById('live-dot').style.background = 'var(--danger)';
+  }
+}
+
+function flash(id) {
+  const el = document.getElementById(id);
+  el.classList.add('updated');
+  setTimeout(() => el.classList.remove('updated'), 400);
+}
+
+function updateMetrics(m) {
+  set('val-visitors',   m.unique_visitors ?? 0);
+  set('val-conversion', m.conversion_rate != null ? (m.conversion_rate * 100).toFixed(1) + '%' : '0%');
+  set('val-queue',      m.queue_depth ?? 0);
+  set('val-abandon',    (m.abandonment_rate ?? 0) + '%');
+  if (m.converted_visitors != null) {
+    document.getElementById('sub-conversion').textContent =
+      `${m.converted_visitors} of ${m.total_visitors} visitors`;
+  }
+}
+
+function set(id, val) {
+  const el = document.getElementById(id);
+  if (el && el.textContent !== String(val)) {
+    el.textContent = val;
+    flash(id);
+  }
+}
+
+function updateFunnel(f) {
+  if (!f.funnel) return;
+  const maxCount = Math.max(...f.funnel.map(s => s.count), 1);
+  document.getElementById('funnel-badge').textContent =
+    (f.overall_conversion_pct ?? 0).toFixed(1) + '%';
+
+  document.getElementById('funnel-chart').innerHTML = f.funnel.map(s => `
+    <div class="funnel-stage">
+      <div class="stage-label">${s.label || s.stage}</div>
+      <div class="stage-bar-wrap">
+        <div class="stage-bar" style="width:${Math.round(s.count/maxCount*100)}%"></div>
+      </div>
+      <div class="stage-count">${s.count}</div>
+    </div>
+  `).join('');
+}
+
+function updateHeatmap(h) {
+  if (!h.zones) return;
+  const conf = h.data_confidence === 'LOW' ? '⚠ LOW DATA' : 'OK';
+  document.getElementById('heatmap-badge').textContent = conf;
+
+  const ZONE_COLORS = {
+    SKINCARE:      '#34d399', MAKEUP: '#60a5fa', HAIRCARE: '#a78bfa',
+    BATH_BODY:     '#fb923c', BILLING: '#f87171', FRAGRANCE: '#f472b6',
+    PERSONAL_CARE: '#facc15'
+  };
+
+  document.getElementById('heatmap-chart').innerHTML = h.zones.map(z => {
+    const color = ZONE_COLORS[z.zone_id] || 'var(--accent)';
+    const dwell = z.avg_dwell_ms > 0
+      ? (z.avg_dwell_ms / 1000).toFixed(0) + 's'
+      : '—';
+    return `
+      <div class="zone-row">
+        <div class="zone-name">${z.zone_id}</div>
+        <div class="zone-bar-wrap">
+          <div class="zone-bar" style="width:${z.normalised_score}%;background:${color}"></div>
+        </div>
+        <div class="zone-dwell">${dwell} avg</div>
+      </div>
+    `;
+  }).join('') || '<div style="font-size:13px;color:var(--muted);padding:12px 0">No zone data yet</div>';
+}
+
+function updateAnomalies(a) {
+  document.getElementById('anomaly-count').textContent = a.anomaly_count ?? 0;
+  const list = document.getElementById('anomalies-list');
+
+  if (!a.anomalies || a.anomalies.length === 0) {
+    list.innerHTML = '<div class="no-anomalies">✓ No active anomalies</div>';
+    return;
+  }
+
+  list.innerHTML = a.anomalies.map(an => `
+    <div class="anomaly ${an.severity}">
+      <div class="anomaly-type">${an.severity} · ${an.anomaly_type}</div>
+      <div class="anomaly-title">${an.title}</div>
+      <div class="anomaly-action">${an.suggested_action || ''}</div>
+    </div>
+  `).join('');
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+initStores().then(() => {
+  refresh();
+  setInterval(refresh, REFRESH_MS);
+});
+</script>
+
+</body>
+</html>

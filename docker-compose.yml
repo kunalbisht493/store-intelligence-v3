@@ -1,0 +1,32 @@
+version: '3.9'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: store-intelligence-api
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+      LOG_LEVEL: info
+      DB_PATH: /app/data/store.db
+      POS_CSV_PATH: /app/data/Brigade_Bangalore_10_April_26_1.csv
+      EVENTS_OUTPUT: /app/data/events.jsonl
+    volumes:
+      # Persist SQLite database and events across container restarts
+      - store_data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+volumes:
+  store_data:
+    driver: local
