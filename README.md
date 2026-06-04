@@ -1,170 +1,370 @@
-# Store Intelligence — Brigade Road Bangalore
+# Store Intelligence Platform
 
-End-to-end store analytics: CCTV footage → structured events → live metrics API.
-
-**Store:** Brigade_Bangalore (ST1008) · **Date:** 10 April 2026
+End-to-end retail analytics pipeline: CCTV footage → structured events → Intelligence API → Live Dashboard.
 
 ---
 
-## 5-Command Setup
+# Overview
+
+This project processes retail CCTV footage, generates structured customer behavior events, ingests them into a production-ready analytics API, and exposes real-time store intelligence metrics through REST endpoints and a live dashboard.
+
+Features:
+
+- Visitor counting
+- Session deduplication
+- Re-entry handling
+- Zone dwell analytics
+- Billing funnel analytics
+- Conversion tracking using POS data
+- Queue depth monitoring
+- Anomaly detection
+- Live dashboard
+- Dockerized deployment
+- Automated tests
+
+---
+
+# Repository Structure
+
+The repository intentionally excludes:
+
+- CCTV clips
+- POS datasets
+- Generated databases
+- Model weights
+- Environment secrets
+
+Place the challenge files in the following locations:
+
+data/
+├── store_layout_ST1008.json
+├── store_layout_ST1076.json
+├── events.jsonl                (generated automatically)
+├── store1/
+│   └── pos_transactions.csv
+└── store2/
+    └── pos_transactions.csv
+
+clips/
+├── store1/
+│   ├── CAM 1 - zone.mp4
+│   ├── CAM 2 - zone.mp4
+│   └── CAM 3 - entry.mp4
+│   └── CAM 5 - billing.mp4
+└── store2/
+    ├── billing_area.mp4
+    ├── entry 1.mp4
+    └── entry 2.mp4
+    └── zone.mp4
+
+models/
+└── yolov8n.onnx
+```
+
+---
+
+## Model Setup
+
+If `models/yolov8n.onnx` is not already available, export it using:
 
 ```bash
-# 1. Clone the repo
-git clone <your-repo-url> && cd store-intelligence
+pip install ultralytics 
 
-# 2. Copy your data files into place
-cp /path/to/Brigade_Bangalore_10_April_26_1.csv data/
-cp /path/to/clips ./clips        # folder containing entry.mp4, floor.mp4, billing.mp4
+python export.py
+```
+copy the yolov8n.onnx inside models
 
-# 3. Start the API
+
+# Quick Start 
+
+
+## 1. Clone Repository
+
+```bash
+git clone <repository-url>
+cd store-intelligence-v3
+```
+
+---
+
+## 2. Place Challenge Files
+
+Copy files into the folders shown above.
+
+Required:
+
+### Store 1
+
+```text
+data/store1/pos_transactions.csv
+clips/store1/CAM 1 - zone.mp4
+clips/store1/CAM 2 - zone.mp4
+clips/store1/CAM 3 - entry.mp4
+clips/store1/CAM 5 - billing.mp4
+```
+
+### Store 2
+
+```text
+data/store2/pos_transactions.csv
+clips/store2/billing_area.mp4
+clips/store2/entry 1.mp4
+clips/store2/entry 2.mp4
+clips/store2/zone.mp4
+```
+
+### Model
+
+```text
+models/yolov8n.onnx
+```
+
+---
+
+## 3. Start API
+
+```bash
 docker compose up --build
+```
 
-# 4. Run the detection pipeline against the clips
-node pipeline/run.js ./clips/ST1008
+API:
 
-# 5. Feed events into the API
+```text
+http://localhost:3000
+```
+
+Dashboard:
+
+```text
+http://localhost:3000
+```
+
+---
+
+## 4. Run Detection Pipeline
+
+Store 1:
+
+```bash
+node pipeline/run.js ./clips/store1
+```
+
+Store 2:
+
+```bash
+node pipeline/run.js ./clips/store2
+```
+
+Generated output:
+
+```text
+data/events.jsonl
+```
+
+---
+
+## 5. Feed Events Into API
+
+```bash
 node pipeline/feed.js
 ```
 
-API is now live at **http://localhost:3000**
-Dashboard at **http://localhost:3000/dashboard**
+Events are ingested through:
+
+```text
+POST /events/ingest
+```
 
 ---
 
-## Detection Pipeline
+# Real-Time Dashboard (Part E)
 
-The pipeline processes 3 CCTV clips per store and emits structured events to `data/events.jsonl`.
-
-### How It Works
-
-```
-entry.mp4 + floor.mp4 + billing.mp4
-         ↓
-  node pipeline/run.js ./clips/ST1008
-         ↓
-  data/events.jsonl  (sorted by timestamp)
-         ↓
-  node pipeline/feed.js
-         ↓
-  POST /events/ingest  (batches of 100)
-```
-
-### Clip Naming Convention
-
-The pipeline matches clips by filename pattern:
-
-| Camera | Expected filename contains |
-|---|---|
-| `CAM_ENTRY_01` | `entry` |
-| `CAM_FLOOR_01` | `floor` |
-| `CAM_BILLING_01` | `billing` |
-
-Example: `ST1008_entry.mp4`, `ST1008_floor.mp4`, `ST1008_billing.mp4`
-
-### Real-time Simulation (Part E)
-
-To replay events at original speed (for the live dashboard):
+Replay generated events in simulated real time:
 
 ```bash
 node pipeline/feed.js --realtime
 ```
 
-This replays events in the same time proportions as the original recording while the dashboard updates live at http://localhost:3000/dashboard.
+Open:
+
+```text
+http://localhost:3000/dashboard
+```
+
+The dashboard updates automatically every 2 seconds.
+
+Displayed metrics:
+
+- Unique Visitors
+- Conversion Rate
+- Queue Depth
+- Abandonment Rate
+- Conversion Funnel
+- Zone Heatmap
+- Active Anomalies
 
 ---
 
-## API Endpoints
+# API Endpoints
 
-### Health
+## Health
 
 ```bash
 curl http://localhost:3000/health
 ```
 
-### Metrics
+---
+
+## Metrics
 
 ```bash
 curl http://localhost:3000/stores/ST1008/metrics
-# Returns: unique_visitors, conversion_rate, avg_dwell_per_zone, queue_depth, abandonment_rate
 ```
 
-### Funnel
+Returns:
+
+- unique_visitors
+- conversion_rate
+- queue_depth
+- abandonment_rate
+- average dwell time
+
+---
+
+## Funnel
 
 ```bash
 curl http://localhost:3000/stores/ST1008/funnel
-# Returns: Entry → Zone Visit → Billing → Purchase with counts and drop-off %
 ```
 
-### Heatmap
+Returns:
+
+```text
+Entry
+→ Zone Visit
+→ Billing
+→ Purchase
+```
+
+with drop-off percentages.
+
+---
+
+## Heatmap
 
 ```bash
 curl http://localhost:3000/stores/ST1008/heatmap
-# Returns: zone visit frequency + avg dwell, normalised 0-100
 ```
 
-### Anomalies
+Returns:
+
+- zone popularity
+- average dwell
+- normalized heatmap scores
+
+---
+
+## Anomalies
 
 ```bash
 curl http://localhost:3000/stores/ST1008/anomalies
-# Returns: active anomalies with severity (INFO/WARN/CRITICAL) and suggested_action
 ```
 
-### Ingest (manual test)
+Returns:
 
-```bash
-curl -X POST http://localhost:3000/events/ingest \
-  -H "Content-Type: application/json" \
-  -d '{
-    "events": [{
-      "event_id": "550e8400-e29b-41d4-a716-446655440000",
-      "store_id": "ST1008",
-      "camera_id": "CAM_ENTRY_01",
-      "visitor_id": "VIS_abc123",
-      "event_type": "ENTRY",
-      "timestamp": "2026-04-10T12:00:00Z",
-      "zone_id": null,
-      "dwell_ms": 0,
-      "is_staff": false,
-      "confidence": 0.92,
-      "metadata": { "queue_depth": null, "sku_zone": null, "session_seq": 1 }
-    }]
-  }'
-```
+- dead zones
+- queue spikes
+- conversion anomalies
+- suggested actions
 
 ---
 
-## Running Tests
+## Event Ingestion
 
 ```bash
-# Install dev dependencies first (outside Docker)
+curl -X POST http://localhost:3000/events/ingest
+```
+
+Supports:
+
+- validation
+- deduplication
+- idempotency
+
+---
+
+# Running Tests
+
+Install dependencies:
+
+```bash
 npm install
+```
 
-# Run tests (requires API running on localhost:3000)
+Run tests:
+
+```bash
 npm test
+```
 
-# With coverage report
+Coverage:
+
+```bash
 npm run test:coverage
 ```
 
+Current status:
+
+```text
+58 / 58 tests passing
+```
+
 ---
 
-## Architecture
+# Architecture Documents
 
-See [docs/DESIGN.md](docs/DESIGN.md) for full architecture with AI-assisted decisions.
-See [docs/CHOICES.md](docs/CHOICES.md) for the 3 key engineering decisions with trade-off reasoning.
+See:
+
+```text
+DESIGN.md
+```
+
+for architecture and AI-assisted decisions.
+
+See:
+
+```text
+CHOICES.md
+```
+
+for:
+
+1. Detection model selection
+2. Event schema design
+3. API architecture decisions
 
 ---
 
-## Stack
+# Technology Stack
 
-| Layer | Tech |
-|---|---|
-| API | Fastify + Node.js 20 |
+| Layer | Technology |
+|---------|------------|
+| API | Node.js + Fastify |
 | Validation | Zod |
-| Storage | better-sqlite3 (SQLite WAL) |
-| Detection | YOLOv8n ONNX via onnxruntime-node |
-| Tracking | ByteTrack (custom JS implementation) |
-| Logging | pino (structured JSON, trace_id per request) |
-| Tests | Vitest |
-| Container | Docker + Compose |
-| Dashboard | Vanilla HTML/JS polling `/metrics` every 2s |
+| Database | SQLite + better-sqlite3 |
+| Detection | YOLOv8n |
+| Tracking | ByteTrack |
+| Logging | Pino |
+| Testing | Vitest |
+| Dashboard | HTML / CSS / JS |
+| Containerization | Docker Compose |
+
+---
+
+# Notes
+
+- CCTV clips are not included in the repository.
+- POS datasets are not included in the repository.
+- Model weights are not included in the repository.
+- Generated databases are ignored via `.gitignore`.
+- Folder placeholders are committed using `.gitkeep`.
